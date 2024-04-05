@@ -22,7 +22,7 @@ import cockpit from "cockpit";
 
 import { Terminal } from "xterm";
 
-export var docker = { };
+export var docker = {};
 
 function docker_debug() {
     if (window.debugging == "all" || window.debugging == "docker")
@@ -63,7 +63,7 @@ docker.pull = function pull(repo, tag, registry) {
 
     var options = {
         method: "POST",
-        path: "/v1.12/images/create",
+        path: "/v1.45/images/create",
         body: "",
         params: {
             fromImage: repo,
@@ -75,27 +75,27 @@ docker.pull = function pull(repo, tag, registry) {
 
     var buffer = "";
     var req = http.request(options)
-            .stream(function(data) {
-                buffer += data;
-                var next = docker.json_skip(buffer, 0);
-                if (next === 0)
-                    return; /* not enough data yet */
-                var progress = JSON.parse(buffer.substring(0, next));
-                buffer = buffer.substring(next);
-                if (progress.error)
-                    error = progress.error;
-                else if (progress.status)
-                    dfd.notify(progress.status, progress);
-            })
-            .fail(function(ex) {
-                dfd.reject(ex);
-            })
-            .done(function() {
-                if (error)
-                    dfd.reject(new Error(error));
-                else
-                    dfd.resolve();
-            });
+        .stream(function (data) {
+            buffer += data;
+            var next = docker.json_skip(buffer, 0);
+            if (next === 0)
+                return; /* not enough data yet */
+            var progress = JSON.parse(buffer.substring(0, next));
+            buffer = buffer.substring(next);
+            if (progress.error)
+                error = progress.error;
+            else if (progress.status)
+                dfd.notify(progress.status, progress);
+        })
+        .fail(function (ex) {
+            dfd.reject(ex);
+        })
+        .done(function () {
+            if (error)
+                dfd.reject(new Error(error));
+            else
+                dfd.resolve();
+        });
 
     var promise = dfd.promise();
     promise.cancel = function cancel() {
@@ -109,13 +109,13 @@ docker.pull = function pull(repo, tag, registry) {
 /* Gets image info locally */
 docker.inspect_image = function inspect_image(image) {
     var dfd = $.Deferred();
-    http.get("/v1.12/images/" + encodeURIComponent(image) + "/json")
-            .done(function(data) {
-                dfd.resolve(JSON.parse(data));
-            })
-            .fail(function(ex) {
-                dfd.reject(ex);
-            });
+    http.get("/v1.45/images/" + encodeURIComponent(image) + "/json")
+        .done(function (data) {
+            dfd.resolve(JSON.parse(data));
+        })
+        .fail(function (ex) {
+            dfd.reject(ex);
+        });
     var promise = dfd.promise();
     promise.cancel = function cancel() {
         return promise;
@@ -162,26 +162,26 @@ function DockerTerminal(parent, channel) {
 
     if (typeof channel == "string") {
         term.write('\x1b[31m' + channel + '\x1b[m\r\n');
-        self.close = function() { };
+        self.close = function () { };
         self.typeable(false);
         return self;
     }
 
     $(channel)
-            .on("close", function(ev, options) {
-                var problem = options.problem || "disconnected";
-                term.write('\x1b[31m' + problem + '\x1b[m\r\n');
-                self.typeable(false);
-                $(channel).off("message");
-                channel = null;
-            });
+        .on("close", function (ev, options) {
+            var problem = options.problem || "disconnected";
+            term.write('\x1b[31m' + problem + '\x1b[m\r\n');
+            self.typeable(false);
+            $(channel).off("message");
+            channel = null;
+        });
 
     self.process = function process(buffer) {
         term.write(decoder.decode(buffer));
         return buffer.length;
     };
 
-    term.onData(function(data) {
+    term.onData(function (data) {
         /* Send typed input back through channel */
         if (enable_input && channel)
             channel.send(encoder.encode(data));
@@ -202,7 +202,7 @@ function DockerLogs(parent, channel) {
     function write(data) {
         writing.push(data);
         if (!wait) {
-            wait = window.setTimeout(function() {
+            wait = window.setTimeout(function () {
                 wait = null;
                 var at_bottom = pre[0].scrollHeight - pre.scrollTop() <= pre.outerHeight();
                 var span = $("<span>").text(writing.join(""));
@@ -217,7 +217,7 @@ function DockerLogs(parent, channel) {
     /* Just display the failure */
     if (typeof channel == "string") {
         write(channel);
-        self.close = function() { };
+        self.close = function () { };
         return self;
     }
 
@@ -234,7 +234,7 @@ function DockerLogs(parent, channel) {
                 return at; /* more data */
 
             size = ((buffer[at + 4] & 0xFF) << 24) | ((buffer[at + 5] & 0xFF) << 16) |
-                   ((buffer[at + 6] & 0xFF) << 8) | (buffer[at + 7] & 0xFF);
+                ((buffer[at + 6] & 0xFF) << 8) | (buffer[at + 7] & 0xFF);
 
             if (length < at + 8 + size)
                 return at; /* more data */
@@ -249,11 +249,11 @@ function DockerLogs(parent, channel) {
         }
     };
 
-    self.focus = function() {
+    self.focus = function () {
         /* Nothing to do */
     };
 
-    self.close = function() {
+    self.close = function () {
         /* Nothing to do */
     };
 
@@ -263,11 +263,11 @@ function DockerLogs(parent, channel) {
      * degenerates into a stream with framing.
      */
     $(channel)
-            .on("close", function(ev, options) {
-                write(options.reason || "disconnected");
-                $(channel).off();
-                channel = null;
-            });
+        .on("close", function (ev, options) {
+            write(options.reason || "disconnected");
+            $(channel).off();
+            channel = null;
+        });
 
     return self;
 }
@@ -324,7 +324,7 @@ docker.console = function console_(container_id, command, options) {
     /* If there's a command, then we have to exec it in the container */
     if (Array.isArray(command)) {
         if (!options)
-            options = { };
+            options = {};
 
         /* When executing default to having a tty */
         tty = options.tty;
@@ -346,10 +346,10 @@ docker.console = function console_(container_id, command, options) {
 
         docker_debug("preparing to exec:", command);
 
-    /* Just connect to the main container console */
+        /* Just connect to the main container console */
     } else {
         docker_debug("preparing to attach");
-        options = command || { };
+        options = command || {};
         tty = options.tty;
     }
 
@@ -372,30 +372,30 @@ docker.console = function console_(container_id, command, options) {
         if (!exec) {
             if (tty === false) {
                 return attach("GET /v1.15/containers/" + encodeURIComponent(container_id) +
-                              "/logs?follow=1&stdout=1&stderr=1&tail=1000&timestamps=0 HTTP/1.0\r\n" +
-                              "Content-Length: 0\r\n\r\n");
+                    "/logs?follow=1&stdout=1&stderr=1&tail=1000&timestamps=0 HTTP/1.0\r\n" +
+                    "Content-Length: 0\r\n\r\n");
             } else {
                 return attach("POST /v1.15/containers/" + encodeURIComponent(container_id) +
-                              "/attach?logs=1&stream=1&stdin=1&stdout=1&stderr=1 HTTP/1.0\r\n" +
-                              "Content-Length: 0\r\n\r\n");
+                    "/attach?logs=1&stream=1&stdin=1&stdout=1&stderr=1 HTTP/1.0\r\n" +
+                    "Content-Length: 0\r\n\r\n");
             }
         }
 
         /* Prepare the command to be executed */
-        prep = http.request($.extend({ }, options, exec))
-                .always(function() {
-                    prep = null;
-                })
-                .done(function(data) {
-                    var resp = JSON.parse(data);
-                    var body = JSON.stringify({ Detach: false, Tty: tty });
-                    return attach("POST /v1.15/exec/" + encodeURIComponent(resp.Id) +
-                              "/start HTTP/1.0\r\n" +
-                              "Content-Length: " + body.length + "\r\n\r\n" + body);
-                })
-                .fail(function(ex) {
-                    failure(ex.message);
-                });
+        prep = http.request($.extend({}, options, exec))
+            .always(function () {
+                prep = null;
+            })
+            .done(function (data) {
+                var resp = JSON.parse(data);
+                var body = JSON.stringify({ Detach: false, Tty: tty });
+                return attach("POST /v1.15/exec/" + encodeURIComponent(resp.Id) +
+                    "/start HTTP/1.0\r\n" +
+                    "Content-Length: " + body.length + "\r\n\r\n" + body);
+            })
+            .fail(function (ex) {
+                failure(ex.message);
+            });
     }
 
     /*
@@ -410,7 +410,7 @@ docker.console = function console_(container_id, command, options) {
             view.close();
         view = null;
 
-        var opts = $.extend({ }, options, {
+        var opts = $.extend({}, options, {
             payload: "stream",
             unix: "/var/run/docker.sock",
             superuser: true,
@@ -423,27 +423,27 @@ docker.console = function console_(container_id, command, options) {
         channel.send(request);
 
         $(channel)
-                .on("close.attach", function(ev, options) {
-                    docker_debug(container_id + ": console close: ", options);
-                    $(channel).off(".attach");
-                    channel = null;
+            .on("close.attach", function (ev, options) {
+                docker_debug(container_id + ": console close: ", options);
+                $(channel).off(".attach");
+                channel = null;
 
-                    /*
-                 * HACK: If we're disconnected unceremoniously, try
-                 * and reconnect. Certain versions of docker do this
-                 * during container startup.
-                 */
-                    if (self.connected && !options.problem) {
-                        window.setTimeout(function() {
-                            if (self.connected && !channel)
-                                attach(request);
-                        }, 1000);
-                    }
-                });
+                /*
+             * HACK: If we're disconnected unceremoniously, try
+             * and reconnect. Certain versions of docker do this
+             * during container startup.
+             */
+                if (self.connected && !options.problem) {
+                    window.setTimeout(function () {
+                        if (self.connected && !channel)
+                            attach(request);
+                    }, 1000);
+                }
+            });
 
         var headers = null;
         var buffer = channel.buffer();
-        buffer.callback = function(data) {
+        buffer.callback = function (data) {
             var ret = 0;
             var pos = 0;
             var parts;
@@ -520,15 +520,15 @@ docker.console = function console_(container_id, command, options) {
     }
 
     $(self)
-            .on("focusin", function() {
-                focused = true;
-                update_typeable();
-                view.focus();
-            })
-            .on("focusout", function() {
-                focused = false;
-                update_typeable();
-            });
+        .on("focusin", function () {
+            focused = true;
+            update_typeable();
+            view.focus();
+        })
+        .on("focusout", function () {
+            focused = false;
+            update_typeable();
+        });
 
     self.typeable = function typeable(yes) {
         want_typeable = yes;
@@ -557,7 +557,7 @@ docker.console = function console_(container_id, command, options) {
  * or zero if no complete json block found.
  */
 
-docker.json_skip = function(string, pos) {
+docker.json_skip = function (string, pos) {
     var any = false;
     var end = string.length;
     var depth = 0;
@@ -589,39 +589,39 @@ docker.json_skip = function(string, pos) {
 
         if (instr) {
             switch (ch) {
-            case '\\':
-                if (pos + 1 == end)
-                    continue;
-                pos++; /* skip char after bs */
-                break;
-            case '"':
-                instr = false;
-                depth--;
-                break;
-            default:
-                break;
+                case '\\':
+                    if (pos + 1 == end)
+                        continue;
+                    pos++; /* skip char after bs */
+                    break;
+                case '"':
+                    instr = false;
+                    depth--;
+                    break;
+                default:
+                    break;
             }
             continue;
         }
 
         any = true;
         switch (ch) {
-        case '[':
-        case '{':
-            depth++;
-            break;
-        case ']':
-        case '}':
-            depth--;
-            break;
-        case '"':
-            instr = true;
-            depth++;
-            break;
-        default:
-            inword = true;
-            depth++;
-            break;
+            case '[':
+            case '{':
+                depth++;
+                break;
+            case ']':
+            case '}':
+                depth--;
+                break;
+            case '"':
+                instr = true;
+                depth++;
+                break;
+            default:
+                inword = true;
+                depth++;
+                break;
         }
     }
 
@@ -734,7 +734,7 @@ docker.bytes_from_format = function bytes_from_format(formatted, separate) {
         separate = " ";
 
     var format = formatted.split(separate).pop()
-            .toUpperCase();
+        .toUpperCase();
     var spot = byte_suffixes.indexOf(format);
 
     /* TODO: Make the decimal separator translatable */
